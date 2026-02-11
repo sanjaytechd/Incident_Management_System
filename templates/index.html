@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Incident Management Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 50%, #f0f4f8 100%);
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .app-container {
+            display: flex;
+            height: 100vh;
+            gap: 12px;
+            padding: 12px;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
+            border-right: 1px solid rgba(0, 0, 0, 0.08);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            overflow-x: hidden;
+            box-shadow: 2px 0 8px rgba(0, 0, 0, 0.04);
+            border-radius: 15px;
+            flex-shrink: 0;
+            transition: transform 0.3s ease, margin-left 0.3s ease;
+            position: relative;
+            z-index: 100;
+        }
+        
+        .sidebar.closed {
+            transform: translateX(-100%);
+            margin-left: -280px;
+        }
+        
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 99;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .sidebar-overlay.visible {
+            display: block;
+            opacity: 1;
+        }
+        
+        .toggle-sidebar-btn {
+            display: none;
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            width: 40px;
+            height: 40px;
+            background: #1b4d5c;
+            border: none;
+            border-radius: 8px;
+            color: #e8f4f8;
+            cursor: pointer;
+            font-size: 20px;
+            align-items: center;
+            justify-content: center;
+            z-index: 101;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .toggle-sidebar-btn:hover {
+            background: #0f3844;
+        }
+        
+        .sidebar-header {
+            padding: 20px 16px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+        }
+        
+        .new-chat-btn {
+            width: 100%;
+            padding: 12px 16px;
+            background: #1b4d5c;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #e8f4f8;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 15px rgba(26, 77, 109, 0.2);
+        }
+        
+        .new-chat-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(27, 77, 92, 0.3);
+            background: #0f3844;
+        }
+        
+        .new-chat-btn:active {
+            transform: translateY(0);
+        }
+        
+        .conversation-list {
+            flex: 1;
+            padding: 12px 8px;
+            overflow-y: auto;
+        }
+        
+        .conversation-item-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 8px;
+            margin: 6px 0;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+        
+        .conversation-item-wrapper:hover {
+            background: rgba(27, 77, 92, 0.08);
+        }
+        
+        .conversation-item-wrapper.active {
+            background: linear-gradient(135deg, rgba(27, 77, 92, 0.15) 0%, rgba(42, 127, 153, 0.15) 100%);
+        }
+        
+        .conversation-item {
+            flex: 1;
+            padding: 8px 8px;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #475569;
+            text-align: left;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0;
+        }
+        
+        .conversation-item:hover {
+            color: #1b4d5c;
+        }
+        
+        .conversation-item-wrapper.active .conversation-item {
+            color: #1b4d5c;
+            font-weight: 600;
+        }
+        
+        .delete-chat-btn {
+            padding: 6px 8px;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            color: #9ca3af;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+            opacity: 0;
+        }
+        
+        .conversation-item-wrapper:hover .delete-chat-btn {
+            opacity: 1;
+            color: #ef4444;
+        }
+        
+        .delete-chat-btn:hover {
+            background: rgba(239, 68, 68, 0.1);
+        }
+        
+        .delete-chat-btn:active {
+            background: rgba(239, 68, 68, 0.2);
+        }
+        
+        .sidebar-footer {
+            padding: 12px;
+            border-top: 1px solid rgba(0, 0, 0, 0.06);
+            display: flex;
+            gap: 8px;
+        }
+        
+        .sidebar-footer button {
+            flex: 1;
+            padding: 10px 12px;
+            background: rgba(27, 77, 92, 0.1);
+            border: 1px solid rgba(27, 77, 92, 0.3);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #1b4d5c;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        
+        .sidebar-footer button:hover {
+            background: rgba(27, 77, 92, 0.15);
+            border-color: rgba(27, 77, 92, 0.5);
+        }
+        
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        /* Process Flow Panel */
+        .process-flow-panel {
+            width: 300px;
+            background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
+            border-left: 1px solid rgba(0, 0, 0, 0.08);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            overflow-x: hidden;
+            box-shadow: -2px 0 8px rgba(0, 0, 0, 0.04);
+            border-radius: 15px;
+            flex-shrink: 0;
+            transition: transform 0.3s ease, margin-right 0.3s ease;
+            position: relative;
+            z-index: 100;
+        }
+
+        .process-flow-panel.closed {
+            transform: translateX(100%);
+            margin-right: -300px;
+        }
+
+        .process-flow-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 99;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .process-flow-overlay.visible {
+            display: block;
+            opacity: 1;
+        }
+
+        .toggle-process-flow-btn {
+            display: none;
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 40px;
+            height: 40px;
+            background: #2c3e50;
+            border: none;
+            border-radius: 8px;
+            color: #e8f4f8;
+            cursor: pointer;
+            font-size: 20px;
+            align-items: center;
+            justify-content: center;
+            z-index: 101;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .toggle-process-flow-btn:hover {
+            background: #1a2f3f;
+        }
+
+        .process-flow-header {
+            padding: 16px;
+            border-bottom: 1px solid rgba(27, 77, 92, 0.15);
+            background: linear-gradient(135deg, #1b4d5c 0%, #2a7f99 100%);
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .process-flow-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .process-flow-item {
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid rgba(27, 77, 92, 0.1);
+            font-size: 12px;
+            line-height: 1.5;
+            animation: slideIn 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .process-flow-item.manager {
+            border-left: 3px solid #1b4d5c;
+        }
+
+        .process-flow-item.sop-agent {
+            border-left: 3px solid #059669;
+        }
+
+        .process-flow-item.data-agent {
+            border-left: 3px solid #2563eb;
+        }
+
+        .flow-step-number {
+            display: inline-block;
+            background: rgba(27, 77, 92, 0.15);
+            color: #1b4d5c;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            margin-right: 6px;
+            font-size: 11px;
+        }
+
+        .flow-agent-name {
+            display: block;
+            color: #1b4d5c;
+            font-weight: 600;
+            margin-bottom: 4px;
+            font-size: 13px;
+        }
+
+        .flow-action {
+            display: block;
+            color: #475569;
+            margin-bottom: 2px;
+            font-size: 12px;
+        }
+
+        .flow-description {
+            display: block;
+            color: #9ca3af;
+            font-size: 11px;
+            font-style: italic;
+        }
+
+        .process-flow-empty {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #9ca3af;
+            text-align: center;
+            padding: 20px;
+            font-size: 13px;
+        }
+
+        @media (max-width: 1400px) {
+            .process-flow-panel {
+                width: 250px;
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .process-flow-panel {
+                width: 280px;
+                position: fixed;
+                right: 0;
+                top: 0;
+                bottom: 0;
+                max-height: none;
+                transform: translateX(100%);
+                margin-right: 0;
+                transition: transform 0.3s ease;
+                z-index: 99;
+                border-radius: 0;
+            }
+
+            .process-flow-panel.closed {
+                transform: translateX(100%);
+                margin-right: 0;
+            }
+
+            .process-flow-overlay {
+                display: none;
+            }
+
+            .process-flow-overlay.visible {
+                display: block;
+            }
+
+            .toggle-process-flow-btn {
+                display: flex;
+            }
+        }
+        
+        /* Header */
+        .header {
+            padding: 20px 32px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            color: #1f2937;
+            font-weight: 700;
+            background: linear-gradient(135deg, #1b4d5c 0%, #2a7f99 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Chat Container */
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            scroll-behavior: smooth;
+        }
+        
+        .welcome-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+            color: #9ca3af;
+        }
+        
+        .welcome-icon {
+            width: 80px;
+            height: 80px;
+            color: #1b4d5c;
+            margin-bottom: 24px;
+            opacity: 0.8;
+            transition: all 0.3s ease;
+            font-size: 60px;
+        }
+        
+        .welcome-section:hover .welcome-icon {
+            opacity: 1;
+            transform: scale(1.05);
+        }
+        
+        .welcome-section h2 {
+            font-size: 32px;
+            color: #1f2937;
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+        
+        .welcome-section p {
+            font-size: 16px;
+            color: #9ca3af;
+            margin-bottom: 32px;
+        }
+        
+        .message {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .message.user {
+            justify-content: flex-end;
+        }
+        
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #1b4d5c 0%, #2a7f99 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+            font-weight: 700;
+            flex-shrink: 0;
+            box-shadow: 0 6px 20px rgba(26, 77, 109, 0.25);
+            letter-spacing: 0.3px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .message.user .message-avatar {
+            background: linear-gradient(135deg, #f8fafc 0%, #eef2f7 100%);
+            color: #1b4d5c;
+            border: 1.5px solid rgba(27, 77, 92, 0.15);
+            box-shadow: 0 4px 12px rgba(27, 77, 92, 0.15);
+        }
+        
+        .message-content {
+            max-width: 70%;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .message.assistant .message-content {
+            max-width: 90%;
+        }
+        
+        .message.user .message-content {
+            align-items: flex-end;
+        }
+        
+        .message-bubble {
+            padding: 14px 18px;
+            border-radius: 16px;
+            font-size: 15px;
+            line-height: 1.6;
+            color: #1f2937;
+            word-wrap: break-word;
+        }
+        
+        .message.assistant .message-bubble {
+            background: linear-gradient(135deg, #f0f4f8 0%, #e8eef5 100%);
+            color: #1f2937;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+        
+        .message.user .message-bubble {
+            background: linear-gradient(135deg, #1b4d5c 0%, #2a7f99 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(27, 77, 92, 0.3);
+        }
+        
+        /* Input Section */
+        .input-section {
+            padding: 20px 32px 28px;
+        }
+        
+        .input-wrapper {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .query-input-container {
+            flex: 1;
+        }
+        
+        #queryInput {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1.5px solid rgba(27, 77, 92, 0.15);
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: none;
+            height: 40px;
+            max-height: 40px;
+            transition: all 0.2s ease;
+            background: white;
+            color: #1f2937;
+            line-height: 1.5;
+        }
+        
+        #queryInput:focus {
+            outline: none;
+            border-color: rgba(27, 77, 92, 0.4);
+            box-shadow: 0 0 0 3px rgba(27, 77, 92, 0.08);
+        }
+        
+        #queryInput:disabled {
+            background: #f3f4f6;
+            color: #9ca3af;
+            cursor: not-allowed;
+        }
+        
+        .send-btn {
+            padding: 10px 20px;
+            background: #1b4d5c;
+            border: none;
+            border-radius: 8px;
+            color: #e8f4f8;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 14px;
+            box-shadow: 0 2px 8px rgba(27, 77, 92, 0.15);
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            height: 40px;
+        }
+        
+        .send-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(27, 77, 92, 0.3);
+            background: #0f3844;
+        }
+        
+        .send-btn:disabled {
+            background: #cbd5e1;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        
+        .send-btn.active {
+            background: linear-gradient(135deg, #1b4d5c 0%, #2a7f99 100%);
+        }
+        
+        .error {
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #991b1b;
+            border-radius: 10px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+        
+        .info {
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            color: #1e40af;
+            border-radius: 10px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: rgba(27, 77, 92, 0.3);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(27, 77, 92, 0.5);
+        }
+        
+        @media (max-width: 1024px) {
+            .sidebar {
+                width: 240px;
+            }
+            
+            .message-content {
+                max-width: 80%;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .toggle-sidebar-btn {
+                display: flex;
+            }
+            
+            .app-container {
+                flex-direction: column;
+                position: relative;
+            }
+            
+            .sidebar {
+                width: 100%;
+                max-height: 150px;
+                border-radius: 0;
+                border-right: none;
+                border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+                position: fixed;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                max-height: none;
+                transform: translateX(-100%);
+                margin-left: 0;
+                transition: transform 0.3s ease;
+                z-index: 99;
+            }
+            
+            .sidebar.closed {
+                transform: translateX(-100%);
+                margin-left: 0;
+            }
+            
+            .sidebar-overlay {
+                display: none;
+            }
+            
+            .sidebar-overlay.visible {
+                display: block;
+            }
+            
+            .main-content {
+                border-radius: 0;
+            }
+            
+            .message-content {
+                max-width: 85%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Overlay -->
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+        
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <button class="toggle-sidebar-btn" onclick="toggleSidebar()" title="Close sidebar">✕</button>
+            <div class="sidebar-header">
+                <button class="new-chat-btn" onclick="newChat()">+ New Chat</button>
+            </div>
+            
+            <div class="conversation-list" id="conversationList">
+                <!-- Conversations will be loaded here -->
+            </div>
+            
+            <div class="sidebar-footer">
+                <button onclick="clearHistory()">Clear All</button>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="header">
+                <button class="toggle-sidebar-btn" id="headerToggleBtn" onclick="toggleSidebar()" title="Open sidebar" style="position: static; margin-right: 16px; display: none;">☰</button>
+                <h1>Incident Management Assistant</h1>
+            </div>
+            
+            <div class="chat-container" id="chatContainer">
+                <div class="welcome-section">
+                    <div class="welcome-icon">⚙</div>
+                    <h2>Welcome to Incident Assistant</h2>
+                    <p>Ask me about incidents, procedures, escalation paths, and more</p>
+                </div>
+            </div>
+            
+            <div class="input-section">
+                <div class="input-wrapper">
+                    <div class="query-input-container">
+                        <textarea 
+                            id="queryInput" 
+                            placeholder="Ask about incidents, SOPs, escalation procedures..."
+                            onkeydown="handleInputKeydown(event)"
+                        ></textarea>
+                    </div>
+                    <button class="send-btn" id="sendBtn" onclick="submitQuery()">
+                        <span>Send</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Process Flow Panel Overlay -->
+        <div class="process-flow-overlay" id="processFlowOverlay" onclick="toggleProcessFlow()"></div>
+
+        <!-- Process Flow Panel -->
+        <div class="process-flow-panel" id="processFlowPanel">
+            <div class="process-flow-header">
+                ⚙ Process Flow
+                <button class="toggle-process-flow-btn" onclick="toggleProcessFlow()" title="Close process flow">✕</button>
+            </div>
+            <div class="process-flow-content" id="processFlowContent">
+                <div class="process-flow-empty">
+                    Send a query to see the agent workflow
+                </div>
+            </div>
+        </div>
+
+    <script>
+        let conversations = JSON.parse(localStorage.getItem('conversations')) || [];
+        let currentChatId = null;
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadConversations();
+            newChat();
+            autoResizeTextarea();
+        });
+        
+        function handleInputKeydown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                submitQuery();
+            }
+        }
+        
+        function autoResizeTextarea() {
+            const textarea = document.getElementById('queryInput');
+            textarea.addEventListener('input', () => {
+                textarea.style.height = 'auto';
+                textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+            });
+        }
+        
+        let loadingMessageInterval = null;
+        let loadingMessageElement = null;
+        const loadingStatuses = [
+            'Analysing your query...',
+            'Fetching the data...',
+            'Processing information...',
+            'Formatting the result...',
+            'Almost there...'
+        ];
+        let statusIndex = 0;
+        
+        function displayLoadingStatus() {
+            const chatContainer = document.getElementById('chatContainer');
+            
+            if (!loadingMessageElement) {
+                loadingMessageElement = document.createElement('div');
+                loadingMessageElement.className = 'message assistant';
+                
+                const avatar = document.createElement('div');
+                avatar.className = 'message-avatar';
+                avatar.textContent = 'A';
+                
+                const messageContent = document.createElement('div');
+                messageContent.className = 'message-content';
+                
+                const bubble = document.createElement('div');
+                bubble.className = 'message-bubble';
+                bubble.id = 'loadingBubble';
+                
+                messageContent.appendChild(bubble);
+                loadingMessageElement.appendChild(avatar);
+                loadingMessageElement.appendChild(messageContent);
+                
+                chatContainer.appendChild(loadingMessageElement);
+            }
+            
+            const bubble = document.getElementById('loadingBubble');
+            bubble.textContent = loadingStatuses[statusIndex];
+            statusIndex = (statusIndex + 1) % loadingStatuses.length;
+            
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        function startLoadingMessages() {
+            statusIndex = 0;
+            displayLoadingStatus();
+            loadingMessageInterval = setInterval(displayLoadingStatus, 3000);
+        }
+        
+        function stopLoadingMessages() {
+            if (loadingMessageInterval) {
+                clearInterval(loadingMessageInterval);
+                loadingMessageInterval = null;
+            }
+            if (loadingMessageElement) {
+                loadingMessageElement.remove();
+                loadingMessageElement = null;
+            }
+        }
+        
+        function submitQuery() {
+            const queryInput = document.getElementById('queryInput');
+            const sendBtn = document.getElementById('sendBtn');
+            const userQuery = queryInput.value.trim();
+            
+            if (!userQuery) {
+                showMessage('error', 'Please enter a query');
+                return;
+            }
+            
+            if (!currentChatId) {
+                showMessage('error', 'Chat ID not initialized');
+                return;
+            }
+            
+            // Disable input
+            queryInput.disabled = true;
+            sendBtn.disabled = true;
+            
+            // Add user message to chat
+            addMessageToChat('user', userQuery);
+            
+            // Clear input
+            queryInput.value = '';
+            queryInput.style.height = 'auto';
+            
+            // Start showing loading messages
+            startLoadingMessages();
+            
+            // Send query to backend
+            fetch('/query', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    query: userQuery,
+                    chatId: currentChatId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Stop loading messages
+                stopLoadingMessages();
+                
+                if (data.error) {
+                    addMessageToChat('assistant', 'Error: ' + data.error);
+                } else {
+                    addMessageToChat('assistant', data.response);
+                    
+                    // Display process flow
+                    if (data.process_flow && data.process_flow.length > 0) {
+                        displayProcessFlow(data.process_flow);
+                    }
+                    
+                    saveConversation(userQuery, data.response);
+                }
+            })
+            .catch(error => {
+                // Stop loading messages
+                stopLoadingMessages();
+                
+                addMessageToChat('assistant', 'Error: Failed to get response. ' + error.message);
+            })
+            .finally(() => {
+                // Re-enable input
+                queryInput.disabled = false;
+                sendBtn.disabled = false;
+                queryInput.focus();
+            });
+        }
+        
+        function addMessageToChat(role, content) {
+            const chatContainer = document.getElementById('chatContainer');
+            
+            // Remove welcome section if it exists
+            const welcomeSection = chatContainer.querySelector('.welcome-section');
+            if (welcomeSection) {
+                welcomeSection.remove();
+            }
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar';
+            avatar.textContent = role === 'user' ? 'U' : 'A';
+            
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            
+            const bubble = document.createElement('div');
+            bubble.className = 'message-bubble';
+            bubble.textContent = content;
+            
+            messageContent.appendChild(bubble);
+            
+            if (role === 'user') {
+                messageDiv.appendChild(messageContent);
+                messageDiv.appendChild(avatar);
+            } else {
+                messageDiv.appendChild(avatar);
+                messageDiv.appendChild(messageContent);
+            }
+            
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        function showMessage(type, message) {
+            const chatContainer = document.getElementById('chatContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = type;
+            messageDiv.textContent = message;
+            chatContainer.appendChild(messageDiv);
+            setTimeout(() => messageDiv.remove(), 5000);
+        }
+        
+        function newChat() {
+            currentChatId = 'chat_' + Date.now();
+            const chatContainer = document.getElementById('chatContainer');
+            chatContainer.innerHTML = `
+                <div class="welcome-section">
+                    <div class="welcome-icon">⚙</div>
+                    <h2>Welcome to Incident Assistant</h2>
+                    <p>Ask me about incidents, procedures, escalation paths, and more</p>
+                </div>
+            `;
+            document.getElementById('queryInput').value = '';
+            document.getElementById('queryInput').style.height = 'auto';
+            loadConversations();
+        }
+        
+        function saveConversation(question, response) {
+            const conversation = {
+                chatId: currentChatId,
+                question: question,
+                response: response,
+                dateTime: new Date().toISOString()
+            };
+            
+            conversations.push(conversation);
+            localStorage.setItem('conversations', JSON.stringify(conversations));
+            loadConversations();
+        }
+        
+        function loadConversations() {
+            const conversationList = document.getElementById('conversationList');
+            conversationList.innerHTML = '';
+            
+            // Group conversations by chatId
+            const groupedChats = {};
+            conversations.forEach(conv => {
+                if (!groupedChats[conv.chatId]) {
+                    groupedChats[conv.chatId] = conv;
+                }
+            });
+            
+            // Display chats
+            Object.values(groupedChats).reverse().forEach(chat => {
+                const wrapper = document.createElement('div');
+                wrapper.className = `conversation-item-wrapper ${chat.chatId === currentChatId ? 'active' : ''}`;
+                
+                const btn = document.createElement('button');
+                btn.className = 'conversation-item';
+                btn.textContent = chat.question.substring(0, 30) + (chat.question.length > 30 ? '...' : '');
+                btn.onclick = () => loadChat(chat.chatId);
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'delete-chat-btn';
+                deleteBtn.textContent = '✕';
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteChat(chat.chatId);
+                };
+                
+                wrapper.appendChild(btn);
+                wrapper.appendChild(deleteBtn);
+                conversationList.appendChild(wrapper);
+            });
+        }
+        
+        function loadChat(chatId) {
+            currentChatId = chatId;
+            const chatContainer = document.getElementById('chatContainer');
+            chatContainer.innerHTML = '';
+            
+            const chatMessages = conversations.filter(conv => conv.chatId === chatId);
+            
+            if (chatMessages.length === 0) {
+                chatContainer.innerHTML = `
+                    <div class="welcome-section">
+                        <div class="welcome-icon">⚙</div>
+                        <h2>Chat Not Found</h2>
+                        <p>This conversation could not be found</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            chatMessages.forEach(msg => {
+                addMessageToChat('user', msg.question);
+                addMessageToChat('assistant', msg.response);
+            });
+            
+            loadConversations();
+        }
+        
+        function deleteChat(chatId) {
+            conversations = conversations.filter(conv => conv.chatId !== chatId);
+            localStorage.setItem('conversations', JSON.stringify(conversations));
+            
+            if (currentChatId === chatId) {
+                newChat();
+            } else {
+                loadConversations();
+            }
+        }
+
+        function clearHistory() {
+            if (confirm('Are you sure you want to clear all conversations? This cannot be undone.')) {
+                conversations = [];
+                localStorage.setItem('conversations', JSON.stringify(conversations));
+                newChat();
+            }
+        }
+
+        function displayProcessFlow(processFlow) {
+            const processFlowContent = document.getElementById('processFlowContent');
+            processFlowContent.innerHTML = '';
+
+            processFlow.forEach((step) => {
+                const flowItem = document.createElement('div');
+                
+                // Determine agent type for styling
+                let agentClass = 'manager';
+                if (step.agent && step.agent.includes('SOP')) {
+                    agentClass = 'sop-agent';
+                } else if (step.agent && step.agent.includes('Data')) {
+                    agentClass = 'data-agent';
+                }
+                
+                flowItem.className = `process-flow-item ${agentClass}`;
+                
+                flowItem.innerHTML = `
+                    <span class="flow-step-number">Step ${step.step_number}</span>
+                    <span class="flow-agent-name">${step.agent}</span>
+                    <span class="flow-action">${step.action}</span>
+                    <span class="flow-description">${step.description}</span>
+                `;
+                
+                processFlowContent.appendChild(flowItem);
+            });
+
+            // Scroll to bottom
+            processFlowContent.scrollTop = processFlowContent.scrollHeight;
+        }
+        
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('closed');
+            overlay.classList.toggle('visible');
+        }
+
+        function toggleProcessFlow() {
+            const panel = document.getElementById('processFlowPanel');
+            const overlay = document.getElementById('processFlowOverlay');
+            panel.classList.toggle('closed');
+            overlay.classList.toggle('visible');
+        }
+    </script>
+</body>
+</html>
